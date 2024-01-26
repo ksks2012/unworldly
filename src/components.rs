@@ -22,3 +22,24 @@ pub struct Name {
 
 #[derive(Component, Debug)]
 pub struct Biotechnology {}
+
+#[derive(Component, Debug)]
+pub struct BiotechnologyState {
+    pub lifespan : i32,
+    pub life : i32,
+    pub level : i32,
+    pub max_exp : i32,
+    pub exp : i32,
+}
+
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum ExpState {
+    Training,
+    Ready,
+}
+
+#[derive(Component, Debug)]
+pub struct ExpClock {
+    pub state : ExpState,
+    pub duration : i32
+}

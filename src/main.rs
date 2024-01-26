@@ -6,6 +6,9 @@ pub use components::*;
 mod biotechnology;
 mod map;
 pub use map::*;
+mod spawner;
+pub use spawner::*;
+pub mod exp_system;
 
 pub struct State {
     pub ecs: World
@@ -14,6 +17,8 @@ pub struct State {
 impl State {
     fn run_systems(&mut self) {
         self.ecs.maintain();
+        let mut exp = exp_system::ExpSystem{};
+        exp.run_now(&self.ecs);
     }
 }
 
@@ -47,9 +52,14 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Biotechnology>();
+    gs.ecs.register::<BiotechnologyState>();
     gs.ecs.register::<Name>();
+    gs.ecs.register::<ExpClock>();
+
+    let bio_entity = spawner::biotechnology(&mut gs.ecs);
 
     gs.ecs.insert(new_map());
+    gs.ecs.insert(bio_entity);
 
     rltk::main_loop(context, gs)
 }
