@@ -1,5 +1,7 @@
 
 #![allow(unused)]
+use std::time::Duration;
+
 use rltk::console;
 
 use crate::BiotechnologyState;
@@ -35,7 +37,25 @@ impl<'a> System<'a> for ExpSystem {
                         if entity == *bio_entity && state.exp < state.max_exp {
                             state.exp += 1;
                             console::log(&format!("Curent EXP: {}", state.exp));
+                        } else {
+                            clock.state = ExpState::Bottleneck;
                         }
+                    }
+                    ExpState::Bottleneck => {
+                        // TODO: Breakthrough Chance
+                        let chance = (100 - state.level);
+                        let mut rng: rltk::prelude::RandomNumberGenerator = rltk::RandomNumberGenerator::new();
+                        let rng_num = rng.roll_dice(1, 100);
+                        if rng_num < chance {
+                            state.level += 1;
+                            state.max_exp = state.level * 10;
+                            state.exp = 0;
+                            console::log(&format!("Level Up! Level: {}", state.level));
+                        } else {
+                            console::log(&format!("Fail to break bottleneck! Level: {}", state.level));
+                        }
+                        clock.state = ExpState::Training;
+                        clock.duration = 20;
                     }
                 }
             }
