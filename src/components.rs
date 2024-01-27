@@ -36,6 +36,7 @@ pub struct BiotechnologyState {
 pub enum ExpState {
     Training,
     Ready,
+    Bottleneck,
 }
 
 #[derive(Component, Debug)]

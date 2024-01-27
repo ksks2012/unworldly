@@ -6,7 +6,7 @@ use rltk::console;
 
 use crate::BiotechnologyState;
 use specs::prelude::*;
-use super::{ExpClock, ExpState, Name};
+use super::{ExpClock, ExpState, gamelog::GameLog, Name};
 
 pub struct ExpSystem {}
 
@@ -17,10 +17,11 @@ impl<'a> System<'a> for ExpSystem {
                         WriteStorage<'a, ExpClock>,
                         WriteStorage<'a, BiotechnologyState>,
                         ReadExpect<'a, Entity>, // The bio
+                        WriteExpect<'a, GameLog>,
                       );
 
     fn run(&mut self, data : Self::SystemData) {
-        let (entities, mut exp_clock, mut bio_state, bio_entity) = data;
+        let (entities, mut exp_clock, mut bio_state, bio_entity, mut log) = data;
 
         for (entity, mut clock, mut state) in (&entities, &mut exp_clock, &mut bio_state).join() {
             let mut proceed = false;
@@ -37,6 +38,7 @@ impl<'a> System<'a> for ExpSystem {
                         if entity == *bio_entity && state.exp < state.max_exp {
                             state.exp += 1;
                             console::log(&format!("Curent EXP: {}", state.exp));
+                            log.entries.push(format!("Curent EXP: {}", state.exp));
                         } else {
                             clock.state = ExpState::Bottleneck;
                         }
@@ -51,8 +53,10 @@ impl<'a> System<'a> for ExpSystem {
                             state.max_exp = state.level * 10;
                             state.exp = 0;
                             console::log(&format!("Level Up! Level: {}", state.level));
+                            log.entries.push(format!("Level Up! Level: {}", state.level));
                         } else {
                             console::log(&format!("Fail to break bottleneck! Level: {}", state.level));
+                            log.entries.push(format!("Fail to break bottleneck! Level: {}", state.level));
                         }
                         clock.state = ExpState::Training;
                         clock.duration = 20;

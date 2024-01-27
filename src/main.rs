@@ -1,11 +1,13 @@
 use rltk::{GameState, Rltk};
 use specs::prelude::*;
 
+mod biotechnology;
 mod components;
 pub use components::*;
-mod biotechnology;
 mod map;
 pub use map::*;
+mod gamelog;
+mod gui;
 mod spawner;
 pub use spawner::*;
 pub mod exp_system;
@@ -37,13 +39,15 @@ impl GameState for State {
         for (pos, render) in (&positions, &renderables).join() {
             ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
         }
+
+        gui::draw_ui(&self.ecs, ctx);
     }
 }
 
 fn main() -> rltk::BError {
     use rltk::RltkBuilder;
     let mut context = RltkBuilder::simple80x50()
-        .with_title("Roguelike Tutorial")
+        .with_title("Unworldly")
         .build()?;
     context.with_post_scanlines(true);
     let mut gs: State = State {
@@ -60,6 +64,7 @@ fn main() -> rltk::BError {
 
     gs.ecs.insert(new_map());
     gs.ecs.insert(bio_entity);
+    gs.ecs.insert(gamelog::GameLog{ entries : vec!["Welcome to Unworldly".to_string()] });
 
     rltk::main_loop(context, gs)
 }
