@@ -1,94 +1,113 @@
-use rltk::{ RGB, Rltk };
+use rltk::{ BaseMap, Algorithm2D, Point };
+use specs::prelude::*;
+use serde::{Serialize, Deserialize};
+use std::collections::HashSet;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub enum TileType {
-    Wall, Floor
+    Wall, Floor, DownStairs
 }
 
-pub fn xy_idx(x: i32, y: i32) -> usize {
-    (y as usize * 80) + x as usize
+#[derive(Default, Serialize, Deserialize, Clone)]
+pub struct Map {
+    pub tiles : Vec<TileType>,
+    pub width : i32,
+    pub height : i32,
+    pub revealed_tiles : Vec<bool>,
+    pub visible_tiles : Vec<bool>,
+    pub blocked : Vec<bool>,
+    pub depth : i32,
+    pub bloodstains : HashSet<usize>,
+    pub view_blocked : HashSet<usize>,
+
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    pub tile_content : Vec<Vec<Entity>>
 }
 
-/// Makes a map with solid boundaries and 400 randomly placed walls. No guarantees that it won't
-/// look awful.
-pub fn new_map_test() -> Vec<TileType> {
-    let mut map = vec![TileType::Floor; 80*50];
-
-    // Make the boundaries walls
-    for x in 0..80 {
-        map[xy_idx(x, 0)] = TileType::Wall;
-        map[xy_idx(x, 49)] = TileType::Wall;
-    }
-    for y in 0..50 {
-        map[xy_idx(0, y)] = TileType::Wall;
-        map[xy_idx(79, y)] = TileType::Wall;
+impl Map {
+    pub fn xy_idx(&self, x: i32, y: i32) -> usize {
+        (y as usize * self.width as usize) + x as usize
     }
 
-    // Now we'll randomly splat a bunch of walls. It won't be pretty, but it's a decent illustration.
-    // First, obtain the thread-local RNG:
-    let mut rng = rltk::RandomNumberGenerator::new();
+    fn is_exit_valid(&self, x:i32, y:i32) -> bool {
+        if x < 1 || x > self.width-1 || y < 1 || y > self.height-1 { return false; }
+        let idx = self.xy_idx(x, y);
+        !self.blocked[idx]
+    }
 
-    for _i in 0..400 {
-        let x = rng.roll_dice(1, 79);
-        let y = rng.roll_dice(1, 49);
-        let idx = xy_idx(x, y);
-        if idx != xy_idx(40, 25) {
-            map[idx] = TileType::Wall;
+    pub fn populate_blocked(&mut self) {
+        for (i,tile) in self.tiles.iter_mut().enumerate() {
+            self.blocked[i] = *tile == TileType::Wall;
         }
     }
 
-    map
-}
-
-pub fn new_map() -> Vec<TileType> {
-    let mut map = vec![TileType::Floor; 80*50];
-
-    // Make the boundaries walls
-    for x in 0..80 {
-        map[xy_idx(x, 0)] = TileType::Wall;
-        map[xy_idx(x, 49)] = TileType::Wall;
-    }
-    for y in 0..50 {
-        map[xy_idx(0, y)] = TileType::Wall;
-        map[xy_idx(79, y)] = TileType::Wall;
-    }
-
-    // Now we'll randomly splat a bunch of walls. It won't be pretty, but it's a decent illustration.
-    // First, obtain the thread-local RNG:
-    let mut rng = rltk::RandomNumberGenerator::new();
-
-    for _i in 0..400 {
-        let x = rng.roll_dice(1, 79);
-        let y = rng.roll_dice(1, 49);
-        let idx = xy_idx(x, y);
-        if idx != xy_idx(40, 25) {
-            map[idx] = TileType::Wall;
+    pub fn clear_content_index(&mut self) {
+        for content in self.tile_content.iter_mut() {
+            content.clear();
         }
     }
 
-    map
-}
-
-
-pub fn draw_map(map: &[TileType], ctx : &mut Rltk) {
-    let mut y = 0;
-    let mut x = 0;
-    for tile in map.iter() {
-        // Render a tile depending upon the tile type
-        match tile {
-            TileType::Floor => {
-                ctx.set(x, y, RGB::from_f32(0.5, 0.5, 0.5), RGB::from_f32(0., 0., 0.), rltk::to_cp437('.'));
-            }
-            TileType::Wall => {
-                ctx.set(x, y, RGB::from_f32(0.0, 1.0, 0.0), RGB::from_f32(0., 0., 0.), rltk::to_cp437('#'));
-            }
-        }
-
-        // Move the coordinates
-        x += 1;
-        if x > 79 {
-            x = 0;
-            y += 1;
+    /// Generates an empty map, consisting entirely of solid walls
+    pub fn new(new_depth : i32, width: i32, height: i32) -> Map {
+        let map_tile_count = (width*height) as usize;
+        Map{
+            tiles : vec![TileType::Wall; map_tile_count],
+            width,
+            height,
+            revealed_tiles : vec![false; map_tile_count],
+            visible_tiles : vec![false; map_tile_count],
+            blocked : vec![false; map_tile_count],
+            tile_content : vec![Vec::new(); map_tile_count],
+            depth: new_depth,
+            bloodstains: HashSet::new(),
+            view_blocked : HashSet::new()
         }
     }
 }
+
+impl BaseMap for Map {
+    fn is_opaque(&self, idx:usize) -> bool {
+        if idx > 0 && idx < self.tiles.len() {
+            self.tiles[idx] == TileType::Wall || self.view_blocked.contains(&idx)
+        } else {
+            true
+        }
+    }
+
+
+    fn get_pathing_distance(&self, idx1:usize, idx2:usize) -> f32 {
+        let w = self.width as usize;
+        let p1 = Point::new(idx1 % w, idx1 / w);
+        let p2 = Point::new(idx2 % w, idx2 / w);
+        rltk::DistanceAlg::Pythagoras.distance2d(p1, p2)
+    }
+
+    fn get_available_exits(&self, idx:usize) -> rltk::SmallVec<[(usize, f32); 10]> {
+        let mut exits = rltk::SmallVec::new();
+        let x = idx as i32 % self.width;
+        let y = idx as i32 / self.width;
+        let w = self.width as usize;
+
+        // Cardinal directions
+        if self.is_exit_valid(x-1, y) { exits.push((idx-1, 1.0)) };
+        if self.is_exit_valid(x+1, y) { exits.push((idx+1, 1.0)) };
+        if self.is_exit_valid(x, y-1) { exits.push((idx-w, 1.0)) };
+        if self.is_exit_valid(x, y+1) { exits.push((idx+w, 1.0)) };
+
+        // Diagonals
+        if self.is_exit_valid(x-1, y-1) { exits.push(((idx-w)-1, 1.45)); }
+        if self.is_exit_valid(x+1, y-1) { exits.push(((idx-w)+1, 1.45)); }
+        if self.is_exit_valid(x-1, y+1) { exits.push(((idx+w)-1, 1.45)); }
+        if self.is_exit_valid(x+1, y+1) { exits.push(((idx+w)+1, 1.45)); }
+
+        exits
+    }
+}
+
+impl Algorithm2D for Map {
+    fn dimensions(&self) -> Point {
+        Point::new(self.width, self.height)
+    }
+}
+

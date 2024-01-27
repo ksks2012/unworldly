@@ -1,7 +1,8 @@
-use rltk::{GameState, Rltk};
+use rltk::{GameState, Rltk, Point};
 use specs::prelude::*;
 
 mod biotechnology;
+mod camera;
 mod components;
 pub use components::*;
 mod map;
@@ -30,16 +31,7 @@ impl GameState for State {
 
         self.run_systems();
 
-        let map = self.ecs.fetch::<Vec<TileType>>();
-        draw_map(&map, ctx);
-
-        let positions = self.ecs.read_storage::<Position>();
-        let renderables = self.ecs.read_storage::<Renderable>();
-
-        for (pos, render) in (&positions, &renderables).join() {
-            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
-        }
-
+        camera::render_camera(&self.ecs, ctx);
         gui::draw_ui(&self.ecs, ctx);
     }
 }
@@ -59,10 +51,12 @@ fn main() -> rltk::BError {
     gs.ecs.register::<BiotechnologyState>();
     gs.ecs.register::<Name>();
     gs.ecs.register::<ExpClock>();
+    gs.ecs.register::<Hidden>();
 
     let bio_entity = spawner::biotechnology(&mut gs.ecs);
 
-    gs.ecs.insert(new_map());
+    gs.ecs.insert(Map::new(1, 64, 64));
+    gs.ecs.insert(Point::new(0, 0));
     gs.ecs.insert(bio_entity);
     gs.ecs.insert(gamelog::GameLog{ entries : vec!["Welcome to Unworldly".to_string()] });
 

@@ -13,6 +13,7 @@ pub struct Renderable {
     pub glyph: rltk::FontCharType,
     pub fg: RGB,
     pub bg: RGB,
+    pub render_order : i32,
 }
 
 #[derive(Component, Debug)]
@@ -44,3 +45,6 @@ pub struct ExpClock {
     pub state : ExpState,
     pub duration : i32
 }
+
+#[derive(Component, Debug, Clone)]
+pub struct Hidden {}
