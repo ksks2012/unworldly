@@ -25,7 +25,7 @@ impl<'a> System<'a> for ExpSystem {
 
         for (entity, mut clock, mut state) in (&entities, &mut exp_clock, &mut bio_state).join() {
             let mut proceed = false;
-
+            
             clock.duration -= 1;
             if clock.duration < 1 {
                 match clock.state {
@@ -35,7 +35,8 @@ impl<'a> System<'a> for ExpSystem {
                     ExpState::Ready => {
                         clock.state = ExpState::Training;
                         clock.duration = 20;
-                        if entity == *bio_entity && state.exp < state.max_exp {
+                        // FIXME: entity != *bio_entity after load game
+                        if state.exp < state.max_exp {
                             state.exp += 1;
                             console::log(&format!("Curent EXP: {}", state.exp));
                             log.entries.push(format!("Curent EXP: {}", state.exp));

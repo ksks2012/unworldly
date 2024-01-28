@@ -1,5 +1,6 @@
 use rltk::{GameState, Rltk};
 use specs::prelude::*;
+use specs::saveload::{SimpleMarker, SimpleMarkerAllocator};
 
 mod biotechnology;
 mod components;
@@ -10,6 +11,7 @@ mod gamelog;
 mod gui;
 mod player;
 pub use player::*;
+mod saveload_system;
 mod spawner;
 pub use spawner::*;
 pub mod exp_system;
@@ -69,12 +71,14 @@ impl GameState for State {
 
         match newrunstate {
             RunState::PreRun => {
+                saveload_system::delete_save();
                 self.run_systems();
                 self.ecs.maintain();
                 newrunstate = RunState::AwaitingInput;
             }
             RunState::AwaitingInput => {
-                // TODO: Player input
+                // Player input
+                newrunstate = player_input(self, ctx);
             }
             RunState::PlayerTurn => {
                 self.run_systems();
@@ -94,9 +98,9 @@ impl GameState for State {
                         match selected {
                             gui::MainMenuSelection::NewGame => newrunstate = RunState::PreRun,
                             gui::MainMenuSelection::LoadGame => {
-                                // TODO: Load game
+                                // Load game
+                                saveload_system::load_game(&mut self.ecs);
                                 newrunstate = RunState::AwaitingInput;
-                                // TODO: Delete save
                             }
                             gui::MainMenuSelection::Quit => { ::std::process::exit(0); }
                         }
@@ -104,11 +108,8 @@ impl GameState for State {
                 }
             }
             RunState::SaveGame => {
-                // TODO: Save game
-                let data = serde_json::to_string(&*self.ecs.fetch::<BiotechnologyState>()).unwrap();
-                println!("{}", data);
-
-                newrunstate = RunState::MainMenu{ menu_selection : gui::MainMenuSelection::Quit };
+                saveload_system::save_game(&mut self.ecs);
+                newrunstate = RunState::MainMenu{ menu_selection : gui::MainMenuSelection::LoadGame };
             }
         }
 
@@ -135,6 +136,10 @@ fn main() -> rltk::BError {
     gs.ecs.register::<BiotechnologyState>();
     gs.ecs.register::<Name>();
     gs.ecs.register::<ExpClock>();
+    gs.ecs.register::<SimpleMarker<SerializeMe>>();
+
+    // NOTE: Marker is inserted before other entries
+    gs.ecs.insert(SimpleMarkerAllocator::<SerializeMe>::new());
 
     let bio_entity = spawner::biotechnology(&mut gs.ecs);
 
