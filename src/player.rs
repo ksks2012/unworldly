@@ -1,13 +1,15 @@
-use rltk::{VirtualKeyCode, Rltk};
+use rltk::{VirtualKeyCode, Rltk, console};
 use super::{State, RunState};
 
-pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
+pub fn player_input(_gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
     match ctx.key {
         None => { return RunState::AwaitingInput } // Nothing happened
         Some(key) => match key {
             VirtualKeyCode::Left |
-            VirtualKeyCode::Numpad4 => {},
+            VirtualKeyCode::Numpad4 => {
+                console::log(&format!("Left"));
+            },
 
             VirtualKeyCode::Right |
             VirtualKeyCode::Numpad6 => {},
@@ -24,5 +26,6 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             _ => { return RunState::AwaitingInput }
         },
     }
+    console::log(&format!("PlayerTurn"));
     RunState::PlayerTurn
 }
