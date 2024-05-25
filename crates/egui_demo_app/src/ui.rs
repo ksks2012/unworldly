@@ -20,6 +20,7 @@ impl Default for Demos {
     fn default() -> Self {
         Self::from_demos(vec![
             Box::<super::MiscDemoWindow>::default(),
+            Box::<super::LogWindows>::default(),
         ])
     }
 }

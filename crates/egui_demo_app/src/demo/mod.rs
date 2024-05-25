@@ -1,8 +1,9 @@
-pub mod misc_demo_window;
 pub mod about;
+pub mod logs;
+pub mod misc_demo_window;
 
 pub use {
-    about::About, misc_demo_window::MiscDemoWindow
+    about::About, logs::LogWindows, misc_demo_window::MiscDemoWindow
 };
 
 

@@ -6,4 +6,4 @@
 ## Feature
 
 - [x] Text window
-  - [ ] with updating
+  - [x] with updating

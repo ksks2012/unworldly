@@ -6,7 +6,7 @@ mod ui;
 mod demo;
 
 pub use {
-    ui::DemoWindows, wrap_app::WrapApp, demo::MiscDemoWindow,
+    ui::DemoWindows, wrap_app::WrapApp, demo::MiscDemoWindow, demo::LogWindows,
 };
 
 // ----------------------------------------------------------------------------
