@@ -1,7 +1,70 @@
+use std::collections::BTreeSet;
+
 use egui::{Context, ScrollArea};
 
-use super::About;
-use crate::Demo;
+use crate::demo::About;
+use crate::demo::Demo;
+
+// ----------------------------------------------------------------------------
+
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
+struct Demos {
+    #[cfg_attr(feature = "serde", serde(skip))]
+    demos: Vec<Box<dyn Demo>>,
+
+    open: BTreeSet<String>,
+}
+
+impl Default for Demos {
+    fn default() -> Self {
+        Self::from_demos(vec![
+            Box::<super::MiscDemoWindow>::default(),
+        ])
+    }
+}
+
+impl Demos {
+    pub fn from_demos(demos: Vec<Box<dyn Demo>>) -> Self {
+        let mut open = BTreeSet::new();
+
+        Self { demos, open }
+    }
+
+    pub fn checkboxes(&mut self, ui: &mut egui::Ui) {
+        let Self { demos, open } = self;
+        for demo in demos {
+            if demo.is_enabled(ui.ctx()) {
+                let mut is_open = open.contains(demo.name());
+                ui.toggle_value(&mut is_open, demo.name());
+                set_open(open, demo.name(), is_open);
+            }
+        }
+    }
+
+    pub fn windows(&mut self, ctx: &Context) {
+        let Self { demos, open } = self;
+        for demo in demos {
+            let mut is_open = open.contains(demo.name());
+            demo.show(ctx, &mut is_open);
+            set_open(open, demo.name(), is_open);
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+fn set_open(open: &mut BTreeSet<String>, key: &'static str, is_open: bool) {
+    if is_open {
+        if !open.contains(key) {
+            open.insert(key.to_owned());
+        }
+    } else {
+        open.remove(key);
+    }
+}
+
+// ----------------------------------------------------------------------------
 
 /// A menu bar in which you can select different demo windows to show.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -9,8 +72,7 @@ use crate::Demo;
 pub struct DemoWindows {
     about_is_open: bool,
     about: About,
-    // demos: Demos,
-    // tests: Tests,
+    demos: Demos,
 }
 
 impl Default for DemoWindows {
@@ -18,6 +80,7 @@ impl Default for DemoWindows {
         Self {
             about_is_open: true,
             about: Default::default(),
+            demos: Default::default(),
         }
     }
 }
@@ -60,6 +123,7 @@ impl DemoWindows {
     /// Show the open windows.
     fn show_windows(&mut self, ctx: &Context) {
         self.about.show(ctx, &mut self.about_is_open);
+        self.demos.windows(ctx);
     }
 
     fn demo_list_ui(&mut self, ui: &mut egui::Ui) {
@@ -67,6 +131,8 @@ impl DemoWindows {
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
                 ui.toggle_value(&mut self.about_is_open, self.about.name());
 
+                ui.separator();
+                self.demos.checkboxes(ui);
                 ui.separator();
             });
 
